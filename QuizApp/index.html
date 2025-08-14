@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Online Quiz Maker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: auto;
+    }
+    h1, h2 { text-align: center; }
+    .button {
+      padding: 10px 15px;
+      margin: 5px;
+      border: none;
+      background: #4CAF50;
+      color: white;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+    .button:hover { background: #45a049; }
+    input, textarea, select {
+      width: 100%;
+      padding: 8px;
+      margin: 5px 0;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    .question-block {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 5px;
+    }
+    .option-button {
+      display: block;
+      width: 100%;
+      margin: 5px 0;
+      padding: 10px;
+      background: #eee;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .option-button:hover { background: #ddd; }
+  </style>
+</head>
+<body>
+
+  <h1>Online Quiz Maker</h1>
+
+  <div id="home">
+    <button class="button" onclick="showCreateQuiz()">Create Quiz</button>
+    <button class="button" onclick="showQuizList()">Take Quiz</button>
+  </div>
+
+  <!-- Create Quiz -->
+  <div id="createQuiz" style="display:none;">
+    <h2>Create a Quiz</h2>
+    <label>Quiz Title:</label>
+    <input type="text" id="quizTitle">
+
+    <div id="questions"></div>
+    <button class="button" onclick="addQuestion()">Add Question</button>
+    <button class="button" onclick="saveQuiz()">Save Quiz</button>
+    <button class="button" onclick="goHome()">Back</button>
+  </div>
+
+  <!-- Quiz List -->
+  <div id="quizList" style="display:none;">
+    <h2>Available Quizzes</h2>
+    <ul id="quizItems"></ul>
+    <button class="button" onclick="goHome()">Back</button>
+  </div>
+
+  <!-- Take Quiz -->
+  <div id="takeQuiz" style="display:none;">
+    <h2 id="quizTitleDisplay"></h2>
+    <div id="quizQuestion"></div>
+  </div>
+
+  <!-- Results -->
+  <div id="results" style="display:none;">
+    <h2>Quiz Results</h2>
+    <p id="scoreDisplay"></p>
+    <button class="button" onclick="showQuizList()">Take Another Quiz</button>
+    <button class="button" onclick="goHome()">Home</button>
+  </div>
+
+  <script>
+    let quizzes = JSON.parse(localStorage.getItem('quizzes') || '[]');
+    let currentQuiz = null;
+    let currentQuestionIndex = 0;
+    let score = 0;
+
+    function goHome() {
+      hideAll();
+      document.getElementById('home').style.display = 'block';
+    }
+
+    function hideAll() {
+      document.querySelectorAll('#home, #createQuiz, #quizList, #takeQuiz, #results')
+        .forEach(el => el.style.display = 'none');
+    }
+
+    // CREATE QUIZ
+    function showCreateQuiz() {
+      hideAll();
+      document.getElementById('createQuiz').style.display = 'block';
+      document.getElementById('quizTitle').value = '';
+      document.getElementById('questions').innerHTML = '';
+    }
+
+    function addQuestion() {
+      let div = document.createElement('div');
+      div.className = 'question-block';
+      div.innerHTML = `
+        <label>Question:</label>
+        <input type="text" class="q-text">
+        <label>Option 1:</label><input type="text" class="q-opt">
+        <label>Option 2:</label><input type="text" class="q-opt">
+        <label>Option 3:</label><input type="text" class="q-opt">
+        <label>Option 4:</label><input type="text" class="q-opt">
+        <label>Correct Option (1-4):</label>
+        <input type="number" min="1" max="4" class="q-correct">
+      `;
+      document.getElementById('questions').appendChild(div);
+    }
+
+    function saveQuiz() {
+      const title = document.getElementById('quizTitle').value.trim();
+      if (!title) return alert('Enter quiz title');
+
+      const questionElems = document.querySelectorAll('.question-block');
+      let questions = [];
+
+      for (let block of questionElems) {
+        let qText = block.querySelector('.q-text').value.trim();
+        let opts = [...block.querySelectorAll('.q-opt')].map(o => o.value.trim());
+        let correct = parseInt(block.querySelector('.q-correct').value) - 1;
+        if (!qText || opts.some(o => !o) || isNaN(correct)) {
+          return alert('Fill all question details');
+        }
+        questions.push({ questionText: qText, options: opts, correctIndex: correct });
+      }
+
+      quizzes.push({ title, questions });
+      localStorage.setItem('quizzes', JSON.stringify(quizzes));
+      alert('Quiz Saved!');
+      goHome();
+    }
+
+    // QUIZ LIST
+    function showQuizList() {
+      hideAll();
+      document.getElementById('quizList').style.display = 'block';
+      const list = document.getElementById('quizItems');
+      list.innerHTML = '';
+      quizzes.forEach((quiz, idx) => {
+        let li = document.createElement('li');
+        li.textContent = quiz.title;
+        li.style.cursor = 'pointer';
+        li.onclick = () => startQuiz(idx);
+        list.appendChild(li);
+      });
+    }
+
+    // TAKE QUIZ
+    function startQuiz(index) {
+      currentQuiz = quizzes[index];
+      currentQuestionIndex = 0;
+      score = 0;
+      hideAll();
+      document.getElementById('takeQuiz').style.display = 'block';
+      document.getElementById('quizTitleDisplay').textContent = currentQuiz.title;
+      showQuestion();
+    }
+
+    function showQuestion() {
+      const q = currentQuiz.questions[currentQuestionIndex];
+      let container = document.getElementById('quizQuestion');
+      container.innerHTML = `<h3>${q.questionText}</h3>`;
+      q.options.forEach((opt, i) => {
+        let btn = document.createElement('button');
+        btn.className = 'option-button';
+        btn.textContent = opt;
+        btn.onclick = () => selectAnswer(i);
+        container.appendChild(btn);
+      });
+    }
+
+    function selectAnswer(index) {
+      if (index === currentQuiz.questions[currentQuestionIndex].correctIndex) {
+        score++;
+      }
+      currentQuestionIndex++;
+      if (currentQuestionIndex < currentQuiz.questions.length) {
+        showQuestion();
+      } else {
+        showResults();
+      }
+    }
+
+    function showResults() {
+      hideAll();
+      document.getElementById('results').style.display = 'block';
+      document.getElementById('scoreDisplay').textContent =
+        `You scored ${score} out of ${currentQuiz.questions.length}`;
+    }
+
+    goHome(); // Initial load
+  </script>
+</body>
+</html>
